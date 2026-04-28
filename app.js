@@ -6,7 +6,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false },
+  auth: {
+    persistSession:    true,
+    autoRefreshToken:  true,
+    detectSessionInUrl: true,
+    storageKey:        "psd-procurement-auth",
+  },
 });
 
 // ----- in-memory state -------------------------------------------------
@@ -733,7 +738,7 @@ $("#save-defaults").addEventListener("click", async () => {
 
 // ----- Realtime: refresh views when others edit -----------------------
 function subscribeRealtime() {
-  supabase.channel("rfq-changes")
+  const ch = supabase.channel("rfq-changes")
     .on("postgres_changes", { event: "*", schema: "public", table: "rfq_requests" }, () => {
       if (!$('[data-panel="rfq-list"]').classList.contains("hidden")) loadRfqs();
     })
@@ -745,7 +750,126 @@ function subscribeRealtime() {
       await loadSettings();
     })
     .subscribe();
+  return ch;
 }
+
+// ----- Auth: email + password -----------------------------------------
+let realtimeChannel = null;
+let appLoaded       = false;
+
+function showAuthOverlay() {
+  $("#auth-overlay").classList.remove("hidden");
+  document.querySelectorAll(".app-shell").forEach(el => el.classList.add("hidden"));
+}
+function hideAuthOverlay() {
+  $("#auth-overlay").classList.add("hidden");
+  document.querySelectorAll(".app-shell").forEach(el => el.classList.remove("hidden"));
+}
+function setAuthMessage(kind, msg) {
+  const errEl  = $("#auth-error");
+  const infoEl = $("#auth-info");
+  errEl.classList.add("hidden");
+  infoEl.classList.add("hidden");
+  if (!msg) return;
+  if (kind === "error") { errEl.textContent  = msg; errEl.classList.remove("hidden"); }
+  else                  { infoEl.textContent = msg; infoEl.classList.remove("hidden"); }
+}
+
+async function handleSignIn(e) {
+  e?.preventDefault?.();
+  const email    = $("#auth-email").value.trim();
+  const password = $("#auth-password").value;
+  if (!email || !password) { setAuthMessage("error", "Email and password are required."); return; }
+  setAuthMessage(null);
+  const signInBtn = $("#auth-signin");
+  signInBtn.disabled = true;
+  try {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) { setAuthMessage("error", error.message); return; }
+    // onAuthStateChange will boot the app.
+  } finally {
+    signInBtn.disabled = false;
+  }
+}
+
+async function handleSignUp() {
+  const email    = $("#auth-email").value.trim();
+  const password = $("#auth-password").value;
+  if (!email || !password) { setAuthMessage("error", "Email and password are required."); return; }
+  if (password.length < 6) { setAuthMessage("error", "Password must be at least 6 characters."); return; }
+  setAuthMessage(null);
+  const signUpBtn = $("#auth-signup");
+  signUpBtn.disabled = true;
+  try {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) { setAuthMessage("error", error.message); return; }
+    if (data.session) {
+      // Email confirmation disabled — user is signed in.
+      return;
+    }
+    setAuthMessage("info", "Account created. Check your email to confirm before signing in.");
+  } finally {
+    signUpBtn.disabled = false;
+  }
+}
+
+async function handleSignOut() {
+  try {
+    await supabase.auth.signOut();
+  } catch (err) {
+    console.error(err);
+    toast(err.message || "Sign out failed", "error");
+  }
+}
+
+$("#auth-form").addEventListener("submit", handleSignIn);
+$("#auth-signup").addEventListener("click", handleSignUp);
+$("#sign-out").addEventListener("click", handleSignOut);
+
+async function loadAppForUser(user) {
+  $("#user-email").textContent = user?.email || "";
+  hideAuthOverlay();
+  if (appLoaded) return;
+  try {
+    setEnv("connecting…");
+    await loadSettings();
+    await resetForm();
+    if (!realtimeChannel) realtimeChannel = subscribeRealtime();
+    setEnv("connected", "ok");
+    appLoaded = true;
+  } catch (err) {
+    console.error(err);
+    setEnv("connection failed", "err");
+    toast(err.message || "Failed to connect to Supabase", "error");
+  }
+}
+
+function tearDownAppOnSignOut() {
+  appLoaded = false;
+  if (realtimeChannel) {
+    try { supabase.removeChannel(realtimeChannel); } catch (_) {}
+    realtimeChannel = null;
+  }
+  state.rfqs = [];
+  state.items = [];
+  state.editingRfqId = null;
+  $("#rfq-list-body").innerHTML = "";
+  $("#item-list-body").innerHTML = "";
+  $("#item-modal").classList.add("hidden");
+  $("#email-modal").classList.add("hidden");
+  $("#auth-password").value = "";
+  setAuthMessage(null);
+  showAuthOverlay();
+  setEnv("signed out");
+}
+
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session?.user) {
+    loadAppForUser(session.user);
+  } else if (event === "SIGNED_OUT") {
+    tearDownAppOnSignOut();
+  }
+});
 
 // ----- bootstrap -------------------------------------------------------
 async function init() {
@@ -754,16 +878,11 @@ async function init() {
     toast("Set the Supabase anon key in config.js", "error");
     return;
   }
-  try {
-    setEnv("connecting…");
-    await loadSettings();
-    await resetForm();
-    subscribeRealtime();
-    setEnv("connected", "ok");
-  } catch (err) {
-    console.error(err);
-    setEnv("connection failed", "err");
-    toast(err.message || "Failed to connect to Supabase", "error");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user) {
+    await loadAppForUser(session.user);
+  } else {
+    showAuthOverlay();
   }
 }
 

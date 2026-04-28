@@ -7,7 +7,30 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="topbar">
+  <!-- ---------- Auth gate ---------- -->
+  <div class="auth-overlay" id="auth-overlay">
+    <div class="auth-card">
+      <h2>PSD Procurement Tracker</h2>
+      <p class="muted" id="auth-subtitle">Sign in to continue</p>
+      <form id="auth-form" autocomplete="on">
+        <label>Email
+          <input type="email" id="auth-email" required autocomplete="email" />
+        </label>
+        <label>Password
+          <input type="password" id="auth-password" required autocomplete="current-password" minlength="6" />
+        </label>
+        <div class="auth-error hidden" id="auth-error"></div>
+        <div class="auth-info hidden" id="auth-info"></div>
+        <div class="auth-actions">
+          <button type="submit" class="btn-primary"   id="auth-signin">Sign in</button>
+          <button type="button" class="btn-secondary" id="auth-signup">Create account</button>
+        </div>
+        <p class="muted auth-hint">Use the email and password registered for your team. Contact your administrator if you don't have an account.</p>
+      </form>
+    </div>
+  </div>
+
+  <header class="topbar app-shell hidden">
     <div class="brand">
       <strong>PSD Procurement Tracker</strong>
       <span class="env-pill" id="env-pill">connecting…</span>
@@ -18,9 +41,13 @@
       <button class="tab" data-tab="item-list">RFQ Item Tracking</button>
       <button class="tab" data-tab="settings">Settings</button>
     </nav>
+    <div class="user-menu">
+      <span class="user-email" id="user-email"></span>
+      <button type="button" class="btn-ghost user-signout" id="sign-out">Sign out</button>
+    </div>
   </header>
 
-  <main>
+  <main class="app-shell hidden">
     <!-- ---------- New RFQ form ---------- -->
     <section class="panel" data-panel="form">
       <h2 id="form-title">Create RFQ Request</h2>

@@ -245,6 +245,74 @@ textarea { resize: vertical; }
   overflow: auto;
 }
 
+/* ---------- Auth gate ---------- */
+.app-shell.hidden { display: none; }
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+.auth-overlay.hidden { display: none; }
+.auth-card {
+  width: min(420px, 100%);
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px 28px 22px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .35);
+}
+.auth-card h2 { margin: 0 0 4px; }
+.auth-card p.muted { margin: 0 0 18px; }
+.auth-card label { margin-bottom: 14px; }
+.auth-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.auth-actions button { flex: 1; }
+.auth-error,
+.auth-info {
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+.auth-error { background: #fee2e2; color: #7f1d1d; border: 1px solid #fecaca; }
+.auth-info  { background: #dbeafe; color: #1e3a8a; border: 1px solid #bfdbfe; }
+.auth-error.hidden,
+.auth-info.hidden { display: none; }
+.auth-hint { margin: 14px 0 0; font-size: 12px; }
+
+/* ---------- Top-bar user menu ---------- */
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #cbd5e1;
+  font-size: 12px;
+}
+.user-email {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-signout {
+  color: #cbd5e1;
+  border: 1px solid #334155;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+}
+.user-signout:hover { background: #1e293b; color: #f8fafc; }
+
 .email-modal-card { width: min(820px, 92vw); }
 .email-modal-head {
   display: flex;
